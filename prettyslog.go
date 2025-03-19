@@ -3,6 +3,7 @@ package prettyslog
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 )
 
@@ -15,14 +16,24 @@ const (
 )
 
 type ColorHandler struct {
+	writer io.Writer
+	level  slog.Level
 	slog.Handler
 }
 
-func NewColorHandler() *ColorHandler {
-	return &ColorHandler{}
+func NewColorHandler(w io.Writer, opts *slog.HandlerOptions) *ColorHandler {
+	if opts == nil {
+		opts = &slog.HandlerOptions{Level: slog.LevelInfo}
+	}
+
+	return &ColorHandler{writer: w, level: opts.Level.Level()}
 }
 
 func (h *ColorHandler) Handle(ctx context.Context, r slog.Record) error {
+	if r.Level < h.level {
+		return nil
+	}
+
 	var color string
 	switch r.Level {
 	case slog.LevelInfo:
@@ -37,7 +48,7 @@ func (h *ColorHandler) Handle(ctx context.Context, r slog.Record) error {
 		color = Reset
 	}
 
-	fmt.Printf("%s%s: %s%s\n", color, r.Level.String(), r.Message, Reset)
+	fmt.Fprintf(h.writer, "%s%s: %s%s\n", color, r.Level.String(), r.Message, Reset)
 
 	return nil
 }
